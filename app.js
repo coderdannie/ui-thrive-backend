@@ -5,6 +5,7 @@ const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 
 const authRouter = require('./routes/auth')
+const notFound = require("./middlewares/not-found");
 
 const app = express();
 
@@ -23,9 +24,7 @@ app.use('/api/auth', authRouter)
 
 
 // catch 404 and forward to error handler
-app.use(function(req, res, next) {
-  next(createEr0ror(404));
-});
+app.use(notFound);
 
 // error handler
 app.use(function(err, req, res, next) {

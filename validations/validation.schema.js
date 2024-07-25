@@ -12,6 +12,11 @@ const signInSchema = Joi.object({
     password: Joi.string().required()
 })
 
+const changePasswordSchema = Joi.object({
+    email: Joi.string().email().required(),
+    password: Joi.string().required()
+})
+
 const verifyOtpSchema = Joi.object({
     email: Joi.string().email().required(),
     emailToken: Joi.string().required().length(6)
@@ -21,7 +26,14 @@ const resendOtpSchema = Joi.object({
     email: Joi.string().email().required()
 })
 
+const forgotPasswordSchema = Joi.object({
+    email: Joi.string().email().required()
+})
+
+
 module.exports = {
+    changePasswordSchema,
+    forgotPasswordSchema,
     resendOtpSchema,
     verifyOtpSchema,
     signInSchema,

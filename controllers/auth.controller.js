@@ -1,10 +1,9 @@
 const generateNumericToken = require("../helpers/tokenGenerator");
-const {signUpSchema, signInSchema, verifyOtpSchema, resendOtpSchema} = require("../validations/validation.schema");
+const {signUpSchema, signInSchema, verifyOtpSchema, resendOtpSchema, forgotPasswordSchema, changePasswordSchema} = require("../validations/validation.schema");
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs')
 const usersService = require("../services/users.service");
-const {sendOTP} = require("../services/mailer.service");
-const {User} = require("../database/models/user")
+const User = require("../database/models/user")
 const signup = async (req, res) => {
     try {
         const {error} = signUpSchema.validate(req.body);
@@ -28,6 +27,7 @@ const signup = async (req, res) => {
             email,
             password: bcrypt.hashSync(password, parseInt(process.env['SALT']))
         })
+        await user.save()
         return res.status(201).json({
             success: true,
             message: "Signup successful",
@@ -88,6 +88,39 @@ const signin = async (req, res) => {
 
 }
 
+const sendOtpForPasswordChange = async(req, res) => {
+    try{
+        const {error} = forgotPasswordSchema.validate(req.body);
+        if (error) return res.status(400).json({
+            success: false,
+            message: error.details[0].message
+        })
+
+        const {email} = req.body
+        const user = await usersService.getUserByEmail(email)
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            })
+        }
+        user.emailToken = generateNumericToken(6)
+        user.tokenExpiration = new Date()
+        await user.save()
+
+        return res.status(200).json({
+            success: true,
+            message: "Otp sending successful",
+        })
+    }catch(e){
+        console.error(e)
+        return res.status(500).json({
+            success: false,
+            message: 'Something went wrong'
+        })
+    }
+}
+
 const verifyOtp = async (req, res) => {
     try {
         const {error} = verifyOtpSchema.validate(req.body);
@@ -107,7 +140,7 @@ const verifyOtp = async (req, res) => {
         const difInMillisecond = new Date().getTime() - new Date(user.tokenExpiration).getTime()
         let timeDiff = Math.round(difInMillisecond / 1000 / 60)
 
-        if (timeDiff > 1) {
+        if (timeDiff > 5) {
             return res.status(400).json({
                 success: false,
                 message: 'Expired otp!'
@@ -121,7 +154,8 @@ const verifyOtp = async (req, res) => {
             })
         }
 
-        await user.update({emailToken: null, emailVerified: true})
+        user.emailToken = null;
+        await user.save()
 
         return res.status(200).json({
             success: true,
@@ -155,16 +189,44 @@ const resendOtp = async (req, res) => {
         }
 
         const emailToken = generateNumericToken(6)
-        await user.update({
-            emailToken,
-            emailVerified: false,
-            tokenExpiration: new Date()
-        })
+        user.emailToken = emailToken
+        user.tokenExpiration = new Date()
+        await user.save()
+
         // sendOTP(user.email, emailToken)
         return res.status(200).json({
             success: true,
             message: "Otp resent!",
-            otp: emailToken
+        })
+    } catch (e) {
+        console.error(e)
+        return res.status(500).json({
+            success: false,
+            message: 'Something went wrong'
+        })
+    }
+}
+
+const changePassword = async(req, res) => {
+    try {
+        const {error} = changePasswordSchema.validate(req.body)
+        if (error) return res.status(400).json({
+            success: false,
+            message: error.details[0].message
+        })
+        const existingUser = await usersService.getUserByEmail(req.body.email)
+        if (!existingUser) {
+            return res.status(404).json({
+                success: true,
+                message: "User does not exist"
+            })
+        }
+        existingUser.password = bcrypt.hashSync(req.body.password, parseInt(process.env['SALT']))
+        await existingUser.save()
+
+        return res.status(200).json({
+            success: true,
+            message: "Password changed successfully",
         })
     } catch (e) {
         console.error(e)
@@ -176,6 +238,8 @@ const resendOtp = async (req, res) => {
 }
 
 module.exports = {
+    changePassword,
+    sendOtpForPasswordChange,
     signin,
     resendOtp,
     verifyOtp,
