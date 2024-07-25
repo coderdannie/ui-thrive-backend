@@ -1,31 +1,25 @@
 const bcrypt = require('bcryptjs');
-const db = require("../database/models");
-const {User} = db.sequelize.models
-require('dotenv').config()
+const {User} = require("../database/models/user");
+console.log(User)
 const getUserByEmail = async (email) => {
-    return await User.findOne({
-        where: {
-            email: email
-        }
-    })
+    return await User.findOne({email: email}).exec();
 }
-const createUser = async (userData) => {
-    try {
-        return await User.create({
-            firstName: userData.firstName,
-            lastName: userData.lastName,
-            email: userData.email,
-            emailToken: userData.emailToken,
-            password: bcrypt.hashSync(userData.password, parseInt(process.env['SALT'])),
-            tokenExpiration: new Date()
-        })
-    } catch (e) {
-        console.error(e)
-    }
-}
-
+// const createUser = async (userData) => {
+//     try {
+//         const user = new User({
+//             firstName: userData.firstName,
+//             lastName: userData.lastName,
+//             email: userData.email,
+//             emailToken: userData.emailToken,
+//             password: bcrypt.hashSync(userData.password, parseInt(process.env['SALT'])),
+//         })
+//         await user.save()
+//     } catch (e) {
+//         console.error(e)
+//     }
+// }
 
 module.exports = {
     getUserByEmail,
-    createUser,
+    // createUser,
 }

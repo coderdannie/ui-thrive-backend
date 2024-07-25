@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs')
 const usersService = require("../services/users.service");
 const {sendOTP} = require("../services/mailer.service");
-require('dotenv').config()
+const {User} = require("../database/models/user")
 const signup = async (req, res) => {
     try {
         const {error} = signUpSchema.validate(req.body);
@@ -22,14 +22,15 @@ const signup = async (req, res) => {
             })
         }
 
-        const emailToken = generateNumericToken(6)
-
-        await usersService.createUser({firstName, lastName, email, password, emailToken})
-        // sendOTP(email, emailToken)
+        const user = new User({
+            firstName,
+            lastName,
+            email,
+            password: bcrypt.hashSync(password, parseInt(process.env['SALT']))
+        })
         return res.status(201).json({
             success: true,
-            message: "Signup successful! Check email for OTP",
-            otp: emailToken
+            message: "Signup successful",
         })
 
     } catch (e) {
@@ -60,13 +61,6 @@ const signin = async (req, res) => {
             })
         }
 
-        if (!user.emailVerified) {
-            return res.status(401).json({
-                success: false,
-                message: 'Email not verified'
-            })
-        }
-
         const isValid = bcrypt.compareSync(password, user.password)
         if (!isValid) {
             return res.status(401).json({
@@ -75,7 +69,7 @@ const signin = async (req, res) => {
             })
         }
 
-        const payload = {userId: user.id}
+        const payload = {userId: user._id}
         const token = jwt.sign(payload,process.env.JWT_SECRET, {expiresIn: 60 * 60})
 
         return res.status(200)
